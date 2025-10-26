@@ -15,12 +15,53 @@ export default class Board extends React.Component {
         complete: clients.filter(client => client.status && client.status === 'complete'),
       }
     }
+
+    // Refs for each swimlane
     this.swimlanes = {
       backlog: React.createRef(),
       inProgress: React.createRef(),
       complete: React.createRef(),
     }
   }
+
+  componentDidMount() {
+    // Initialize Dragula with all swimlanes
+    const drake = Dragula([
+      this.swimlanes.backlog.current,
+      this.swimlanes.inProgress.current,
+      this.swimlanes.complete.current
+    ]);
+
+    drake.on('drop', (el, target, source, sibling) => {
+      const cardId = el.dataset.id;
+      const newStatus = target.dataset.status;
+
+      //Cancel Dragula's direct DOM move 
+      drake.cancel(true);
+
+      // Update React state so React re-renders card in correct lane
+      this.setState(prevState => {
+        let allClients = [
+          ...prevState.clients.backlog,
+          ...prevState.clients.inProgress,
+          ...prevState.clients.complete
+        ];
+
+        const card = allClients.find(c => c.id === cardId);
+        if (!card) return prevState; // safety check
+        card.status = newStatus;
+
+        return {
+          clients: {
+            backlog: allClients.filter(c => c.status === 'backlog'),
+            inProgress: allClients.filter(c => c.status === 'in-progress'),
+            complete: allClients.filter(c => c.status === 'complete'),
+          }
+        };
+      });
+    });
+  }
+
   getClients() {
     return [
       ['1','Stark, White and Abbott','Cloned Optimal Architecture', 'in-progress'],
@@ -47,12 +88,19 @@ export default class Board extends React.Component {
       id: companyDetails[0],
       name: companyDetails[1],
       description: companyDetails[2],
-      status: companyDetails[3],
+      status: 'backlog',
     }));
   }
-  renderSwimlane(name, clients, ref) {
+
+  renderSwimlane(name, clients, ref, status) {
+    // Added status prop for Dragula identification
     return (
-      <Swimlane name={name} clients={clients} dragulaRef={ref}/>
+      <Swimlane 
+        name={name} 
+        clients={clients} 
+        dragulaRef={ref} 
+        status={status} 
+      />
     );
   }
 
@@ -62,13 +110,13 @@ export default class Board extends React.Component {
         <div className="container-fluid">
           <div className="row">
             <div className="col-md-4">
-              {this.renderSwimlane('Backlog', this.state.clients.backlog, this.swimlanes.backlog)}
+              {this.renderSwimlane('Backlog', this.state.clients.backlog, this.swimlanes.backlog, 'backlog')}
             </div>
             <div className="col-md-4">
-              {this.renderSwimlane('In Progress', this.state.clients.inProgress, this.swimlanes.inProgress)}
+              {this.renderSwimlane('In Progress', this.state.clients.inProgress, this.swimlanes.inProgress, 'in-progress')}
             </div>
             <div className="col-md-4">
-              {this.renderSwimlane('Complete', this.state.clients.complete, this.swimlanes.complete)}
+              {this.renderSwimlane('Complete', this.state.clients.complete, this.swimlanes.complete, 'complete')}
             </div>
           </div>
         </div>
